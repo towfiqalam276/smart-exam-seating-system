@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="welcome-row">
+  <div><div class="eyebrow"><span class="eyebrow-dot"></span> YOUR EXAM OPERATIONS, AT A GLANCE</div><h1>Good day, Admin <span class="wave">✦</span></h1><p>Here’s what’s happening across your exam seating system.</p></div>
+  <div class="welcome-actions"><a class="btn btn-light" href="{{ url_for('export_csv') }}"><i data-lucide="download"></i> Export data</a><a class="btn btn-primary" href="{{ url_for('results') }}"><i data-lucide="armchair"></i> View seating plan</a></div>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon violet"><i data-lucide="users"></i></span><span class="stat-caption">REGISTERED</span></div><div class="stat-value">{{ students|length }}</div><div class="stat-bottom"><span class="stat-label">Total students</span><span class="stat-foot"><i data-lucide="user-round"></i> Enrolled</span></div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon blue"><i data-lucide="school"></i></span><span class="stat-caption">LOCATIONS</span></div><div class="stat-value">{{ halls|length }}</div><div class="stat-bottom"><span class="stat-label">Exam halls</span><span class="stat-foot"><i data-lucide="map-pin"></i> Available</span></div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon orange"><i data-lucide="armchair"></i></span><span class="stat-caption">SEAT INVENTORY</span></div><div class="stat-value">{{ total_capacity }}</div><div class="stat-bottom"><span class="stat-label">Total capacity</span><span class="stat-foot">{{ available_seats }} seats free</span></div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon green"><i data-lucide="badge-check"></i></span><span class="stat-caption">CURRENT PLAN</span></div><div class="stat-value">{{ allocation_count }}</div><div class="stat-bottom"><span class="stat-label">Allocated seats</span><span class="stat-foot">{{ utilization }}% utilized</span></div></article>
+</section>
+
+<section class="dashboard-grid" id="analytics">
+  <article class="panel chart-panel"><div class="panel-heading"><div><h2>Seat utilization</h2><p>Allocated seats compared with total capacity</p></div><span class="period-pill">CURRENT</span></div><div class="utilization-layout"><div class="donut-wrap"><canvas id="utilizationChart" aria-label="Seat utilization chart"></canvas><div class="donut-center"><b>{{ utilization }}%</b><span>UTILIZED</span></div></div><div class="legend-list"><div><span class="legend-dot dot-violet"></span><span>Allocated seats</span><b>{{ allocation_count }}</b></div><div><span class="legend-dot dot-gray"></span><span>Available seats</span><b>{{ available_seats }}</b></div><div class="legend-note">Seat usage across all registered halls.</div></div></div></article>
+  <article class="panel chart-panel"><div class="panel-heading"><div><h2>Student distribution</h2><p>Students grouped by subject / course</p></div><span class="mini-icon"><i data-lucide="chart-no-axes-column"></i></span></div><div class="chart-area"><canvas id="subjectChart" aria-label="Students by subject chart"></canvas>{% if not subject_labels %}<div class="chart-empty">Add students to see subject analytics.</div>{% endif %}</div></article>
+</section>
+
+<section class="panel hall-panel"><div class="panel-heading"><div><h2>Hall capacity overview</h2><p>Occupancy status for each registered exam hall</p></div><a class="text-link" href="#halls">Manage halls <i data-lucide="arrow-up-right"></i></a></div>
+{% if halls %}
+<div class="hall-list">{% for hall in halls %}{% set ns = namespace(occupied=0) %}{% for row in hall_occupied %}{% endfor %}<div class="hall-item"><div class="hall-symbol"><i data-lucide="building-2"></i></div><div class="hall-info"><div><b>{{ hall.name }}</b><span>{{ hall.capacity }} seats capacity</span></div><div class="progress-track"><span style="width: {{ ((hall_occupied[loop.index0] / hall.capacity * 100) if hall.capacity else 0)|round|int }}%"></span></div></div><div class="hall-numbers"><b>{{ hall_occupied[loop.index0] }}<small>/ {{ hall.capacity }}</small></b><span>occupied</span></div></div>{% endfor %}</div>
+{% else %}<div class="empty-state"><i data-lucide="building-2"></i><b>No exam halls yet</b><span>Add a hall to start tracking seat capacity.</span></div>{% endif %}
+</section>
+
+<div class="section-heading" id="students"><div><div class="eyebrow">DATA MANAGEMENT</div><h2>Manage your students</h2><p>Add, edit, search and maintain student records.</p></div></div>
+<div class="management-grid">
+  <section class="panel form-panel"><div class="panel-heading"><div><h2>Add new student</h2><p>Enter the student’s details below</p></div><span class="mini-icon"><i data-lucide="user-plus"></i></span></div>
+    <form action="{{ url_for('add_student') }}" method="post" class="form-stack">
+      <label>Student ID<input name="student_no" placeholder="e.g. 2024001" required maxlength="40"></label>
+      <label>Full name<input name="name" placeholder="Enter student name" required maxlength="100"></label>
+      <label>Subject / Course<input name="subject" placeholder="e.g. CSE101" required maxlength="80"></label>
+      <button class="btn btn-primary full-btn" type="submit"><i data-lucide="plus"></i> Add student</button>
+    </form>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><h2>Student directory <span class="count-pill">{{ students|length }}</span></h2><p>All registered students</p></div><div class="search-box"><i data-lucide="search"></i><input id="studentSearch" placeholder="Search students..."></div></div>
+    {% if students %}<div class="table-scroll"><table class="data-table" id="studentsTable"><thead><tr><th>STUDENT</th><th>STUDENT ID</th><th>SUBJECT</th><th>ACTION</th></tr></thead><tbody>{% for student in students %}<tr data-search="{{ (student.student_no ~ ' ' ~ student.name ~ ' ' ~ student.subject)|lower }}"><td><div class="person-cell"><span class="person-avatar avatar-{{ loop.index0 % 5 }}">{{ student.name[:1]|upper }}</span><b>{{ student.name }}</b></div></td><td class="mono">{{ student.student_no }}</td><td><span class="subject-chip">{{ student.subject }}</span></td><td><div class="row-actions"><button class="icon-action edit-student" type="button" data-id="{{ student.id }}" data-no="{{ student.student_no }}" data-name="{{ student.name }}" data-subject="{{ student.subject }}" title="Edit"><i data-lucide="pencil"></i></button><form action="{{ url_for('delete_student', student_id=student.id) }}" method="post" onsubmit="return confirm('Delete this student?')"><button class="icon-action delete-action" title="Delete"><i data-lucide="trash-2"></i></button></form></div></td></tr>{% endfor %}</tbody></table></div><div class="table-foot"><span>Showing {{ students|length }} student records</span><span>Search filters this list instantly</span></div>{% else %}<div class="empty-state"><i data-lucide="users"></i><b>No students added</b><span>Your student directory will appear here.</span></div>{% endif %}
+  </section>
+</div>
+
+<div class="section-heading" id="halls"><div><div class="eyebrow">SPACE MANAGEMENT</div><h2>Exam hall management</h2><p>Configure halls and keep track of available seating.</p></div></div>
+<div class="management-grid">
+  <section class="panel form-panel"><div class="panel-heading"><div><h2>Add exam hall</h2><p>Create a new seating location</p></div><span class="mini-icon"><i data-lucide="landmark"></i></span></div>
+    <form action="{{ url_for('add_hall') }}" method="post" class="form-stack"><label>Hall name<input name="name" placeholder="e.g. Main Hall A" required maxlength="80"></label><label>Seat capacity<input name="capacity" type="number" min="1" max="10000" placeholder="e.g. 120" required></label><button class="btn btn-primary full-btn" type="submit"><i data-lucide="plus"></i> Add exam hall</button></form>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><h2>Registered halls <span class="count-pill">{{ halls|length }}</span></h2><p>Hall names and seating capacity</p></div></div>
+  {% if halls %}<div class="table-scroll"><table class="data-table"><thead><tr><th>EXAM HALL</th><th>CAPACITY</th><th>ACTION</th></tr></thead><tbody>{% for hall in halls %}<tr><td><div class="person-cell"><span class="hall-table-icon"><i data-lucide="building-2"></i></span><b>{{ hall.name }}</b></div></td><td class="mono">{{ hall.capacity }} seats</td><td><div class="row-actions"><button class="icon-action edit-hall" type="button" data-id="{{ hall.id }}" data-name="{{ hall.name }}" data-capacity="{{ hall.capacity }}" title="Edit"><i data-lucide="pencil"></i></button><form action="{{ url_for('delete_hall', hall_id=hall.id) }}" method="post" onsubmit="return confirm('Delete this hall?')"><button class="icon-action delete-action" title="Delete"><i data-lucide="trash-2"></i></button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state"><i data-lucide="building-2"></i><b>No halls registered</b><span>Add your first exam hall here.</span></div>{% endif %}
+  </section>
+</div>
+
+<section class="generate-banner" id="settings"><div class="generate-art"><span><i data-lucide="sparkles"></i></span></div><div class="generate-copy"><div class="eyebrow">OPTIMIZATION ENGINE</div><h2>Ready to arrange your exam?</h2><p>Generate a subject-interleaved seating plan based on your current student list and hall capacity.</p><div class="generate-meta"><span><i data-lucide="users"></i> {{ students|length }} students</span><span><i data-lucide="armchair"></i> {{ total_capacity }} total seats</span></div></div><form action="{{ url_for('generate') }}" method="post" onsubmit="return confirm('Generate a new seating plan? The current allocation will be replaced.')"><button class="btn btn-white" type="submit">Generate seating plan <i data-lucide="arrow-right"></i></button></form></section>
+
+<dialog class="edit-dialog" id="studentDialog"><form id="studentEditForm" method="post"><div class="dialog-head"><div><h2>Edit student</h2><p>Update student information</p></div><button type="button" class="icon-action dialog-close">×</button></div><label>Student ID<input name="student_no" id="editStudentNo" required></label><label>Full name<input name="name" id="editStudentName" required></label><label>Subject / Course<input name="subject" id="editStudentSubject" required></label><button class="btn btn-primary full-btn">Save changes</button></form></dialog>
+<dialog class="edit-dialog" id="hallDialog"><form id="hallEditForm" method="post"><div class="dialog-head"><div><h2>Edit exam hall</h2><p>Update hall information</p></div><button type="button" class="icon-action dialog-close">×</button></div><label>Hall name<input name="name" id="editHallName" required></label><label>Seat capacity<input name="capacity" id="editHallCapacity" type="number" min="1" required></label><button class="btn btn-primary full-btn">Save changes</button></form></dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+window.examDashboard = {
+  utilization: {{ utilization|tojson }},
+  allocated: {{ allocation_count|tojson }},
+  available: {{ available_seats|tojson }},
+  subjects: {{ subject_labels|tojson }},
+  subjectCounts: {{ subject_values|tojson }}
+};
+</script>
+{% endblock %}
